@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>媒体可信度评分系统</title>
+    
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .score-display {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .score-number {
+            font-size: 4em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .rating-badge {
+            display: inline-block;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .rating-a-plus { background: #10b981; color: white; }
+        .rating-a { background: #34d399; color: white; }
+        .rating-b { background: #fbbf24; color: white; }
+        .rating-c { background: #f59e0b; color: white; }
+        .rating-d { background: #ef4444; color: white; }
+        .rating-f { background: #dc2626; color: white; }
+
+        .dimension-scores {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .dimension-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .dimension-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .dimension-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .batch-section {
+            margin-top: 30px;
+        }
+
+        .media-list {
+            margin-top: 20px;
+        }
+
+        .media-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-info {
+            flex: 1;
+        }
+
+        .media-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .media-details {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .media-score {
+            text-align: right;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .score-number {
+                font-size: 3em;
+            }
+
+            .dimension-scores {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>🎯 媒体可信度评分系统</h1>
+                <p>基于类型、国家、年龄的多维度评估</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="card">
+                <div class="tabs">
+                    <button 
+                        class="tab" 
+                        :class="{ active: currentTab === 'single' }"
+                        @click="currentTab = 'single'"
+                    >
+                        智能评分
+                    </button>
+                    <button 
+                        class="tab" 
+                        :class="{ active: currentTab === 'batch' }"
+                        @click="currentTab = 'batch'"
+                    >
+                        批量评分
+                    </button>
+                    <button 
+                        class="tab" 
+                        :class="{ active: currentTab === 'stats' }"
+                        @click="currentTab = 'stats'"
+                    >
+                        统计分析
+                    </button>
+                    <button 
+                        class="tab" 
+                        :class="{ active: currentTab === 'database' }"
+                        @click="currentTab = 'database'"
+                    >
+                        媒体库 ({{ mediaDatabase.length }})
+                    </button>
+                </div>
+
+                <!-- Single Scoring Tab -->
+                <div v-show="currentTab === 'single'" class="tab-content active">
+                    <h2 class="card-title">智能媒体评分</h2>
+                    
+                    <div class="form-group">
+                        <label>媒体名称（支持模糊搜索）</label>
+                        <input 
+                            type="text" 
+                            v-model="searchQuery" 
+                            @input="handleSearch"
+                            placeholder="输入媒体名称，如：央视、人民、澎湃..."
+                            style="position: relative;"
+                        >
+                        
+                        <!-- 搜索结果下拉框 -->
+                        <div v-if="showSuggestions && searchResults.length > 0" 
+                             style="position: absolute; background: white; border: 2px solid #667eea; border-radius: 8px; max-height: 300px; overflow-y: auto; z-index: 1000; width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+                            <div v-for="media in searchResults" 
+                                 :key="media.name"
+                                 @click="selectMedia(media)"
+                                 style="padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;"
+                                 @mouseover="$event.target.style.background='#f5f7fa'"
+                                 @mouseout="$event.target.style.background='white'"
+                            >
+                                <div style="font-weight: 500; color: #333;">{{ media.name }}</div>
+                                <div style="font-size: 0.85em; color: #666; margin-top: 4px;">
+                                    {{ media.type }} | {{ media.country }} | 注册: {{ media.date }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div v-if="searchQuery && searchResults.length === 0 && !selectedMedia" 
+                             style="margin-top: 8px; padding: 10px; background: #fff3cd; border-radius: 6px; color: #856404; font-size: 0.9em;">
+                            💡 未找到匹配的媒体，请手动填写下方信息
+                        </div>
+                    </div>
+
+                    <div v-if="selectedMedia" style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="font-weight: 500; color: #004085; margin-bottom: 8px;">✅ 已自动识别：</div>
+                        <div style="color: #004085; font-size: 0.95em;">
+                            <strong>{{ selectedMedia.name }}</strong><br>
+                            类型：{{ selectedMedia.type }} | 国家：{{ selectedMedia.country }} | 注册：{{ selectedMedia.date }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>媒体类型</label>
+                        <select v-model="singleForm.type" :disabled="!!selectedMedia">
+                            <option value="官方媒体">官方媒体 (95分)</option>
+                            <option value="主流媒体">主流媒体 (85分)</option>
+                            <option value="商业媒体">商业媒体 (70分)</option>
+                            <option value="自媒体">自媒体 (50分)</option>
+                            <option value="个人账号">个人账号 (30分)</option>
+                        </select>
+                        <div v-if="selectedMedia" style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                            🔒 已自动填充，点击“清除选择”可手动修改
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>国家/地区</label>
+                        <select v-model="singleForm.country" :disabled="!!selectedMedia">
+                            <option value="中国">中国 (90分)</option>
+                            <option value="香港">香港 (85分)</option>
+                            <option value="澳门">澳门 (85分)</option>
+                            <option value="台湾">台湾 (85分)</option>
+                            <option value="美国">美国 (80分)</option>
+                            <option value="英国">英国 (80分)</option>
+                            <option value="日本">日本 (80分)</option>
+                            <option value="德国">德国 (80分)</option>
+                            <option value="法国">法国 (80分)</option>
+                            <option value="印度">印度 (65分)</option>
+                            <option value="巴西">巴西 (65分)</option>
+                            <option value="俄罗斯">俄罗斯 (65分)</option>
+                            <option value="其他">其他 (50分)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>注册日期</label>
+                        <input 
+                            type="date" 
+                            v-model="singleForm.date"
+                            :disabled="!!selectedMedia"
+                        >
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" @click="calculateSingleScore" style="flex: 1;">
+                            计算评分
+                        </button>
+                        <button v-if="selectedMedia" @click="clearSelection" 
+                                style="padding: 15px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            清除选择
+                        </button>
+                    </div>
+
+                    <!-- Result Display -->
+                    <div v-if="singleResult" class="result-card">
+                        <div class="score-display">
+                            <div class="score-number">{{ singleResult.total_score }}</div>
+                            <div :class="['rating-badge', getRatingClass(singleResult.rating)]">
+                                {{ singleResult.rating }}
+                            </div>
+                        </div>
+
+                        <div class="dimension-scores">
+                            <div class="dimension-item">
+                                <div class="dimension-label">类型得分</div>
+                                <div class="dimension-value">{{ singleResult.type_score }}</div>
+                            </div>
+                            <div class="dimension-item">
+                                <div class="dimension-label">国家得分</div>
+                                <div class="dimension-value">{{ singleResult.country_score }}</div>
+                            </div>
+                            <div class="dimension-item">
+                                <div class="dimension-label">年龄得分</div>
+                                <div class="dimension-value">{{ singleResult.age_score }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Batch Scoring Tab -->
+                <div v-show="currentTab === 'batch'" class="tab-content">
+                    <h2 class="card-title">批量评分</h2>
+                    
+                    <div class="form-group">
+                        <label>添加媒体（JSON格式）</label>
+                        <textarea 
+                            v-model="batchInput" 
+                            rows="10"
+                            style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: monospace;"
+                            placeholder='[
+  {
+    "name": "央视新闻",
+    "type": "官方媒体",
+    "country": "中国",
+    "date": "2010-03-15"
+  },
+  {
+    "name": "澎湃新闻",
+    "type": "主流媒体",
+    "country": "中国",
+    "date": "2014-05-10"
+  }
+]'
+                        ></textarea>
+                    </div>
+
+                    <button class="btn" @click="calculateBatchScores">
+                        批量计算
+                    </button>
+
+                    <!-- Batch Results -->
+                    <div v-if="batchResults.length > 0" class="media-list">
+                        <h3 style="margin-top: 20px; margin-bottom: 15px;">评分结果</h3>
+                        <div v-for="(result, index) in batchResults" :key="index" class="media-item">
+                            <div class="media-info">
+                                <div class="media-name">{{ result.name }}</div>
+                                <div class="media-details">
+                                    {{ result.type }} | {{ result.country }} | {{ result.date }}
+                                </div>
+                            </div>
+                            <div class="media-score">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #667eea;">
+                                    {{ result.total_score }}
+                                </div>
+                                <div :class="['rating-badge', getRatingClass(result.rating)]" 
+                                     style="font-size: 0.8em; padding: 5px 10px;">
+                                    {{ result.rating }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Tab -->
+                <div v-show="currentTab === 'stats'" class="tab-content">
+                    <h2 class="card-title">统计分析</h2>
+                    
+                    <div v-if="batchResults.length > 0">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.mean.toFixed(2) }}</div>
+                                <div class="stat-label">平均分数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.median.toFixed(2) }}</div>
+                                <div class="stat-label">中位分数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.max }}</div>
+                                <div class="stat-label">最高分数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.min }}</div>
+                                <div class="stat-label">最低分数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.highCount }}</div>
+                                <div class="stat-label">高分媒体 (≥80)</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ stats.lowCount }}</div>
+                                <div class="stat-label">低分媒体 (<60)</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="scoreChart"></canvas>
+                        </div>
+                    </div>
+                    <div v-else style="text-align: center; padding: 40px; color: #666;">
+                        <p>请先在“批量评分”标签页中添加媒体数据</p>
+                    </div>
+                </div>
+                
+                <!-- Database Management Tab -->
+                <div v-show="currentTab === 'database'" class="tab-content">
+                    <h2 class="card-title">📚 媒体知识库管理</h2>
+                                    
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
+                        <div style="font-weight: 500; color: #004085; margin-bottom: 8px;">💡 使用说明</div>
+                        <div style="color: #004085; font-size: 0.9em; line-height: 1.6;">
+                            • 数据库已内置 {{ mediaDatabase.length }} 个常见媒体<br>
+                            • 支持模糊搜索，输入关键词即可自动匹配<br>
+                            • 数据保存在浏览器本地（LocalStorage）<br>
+                            • 可以添加新媒体或重置为默认数据
+                        </div>
+                    </div>
+                
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <button @click="resetDatabase" 
+                                style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            🔄 重置为默认
+                        </button>
+                        <button @click="exportDatabase" 
+                                style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            📥 导出数据
+                        </button>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>搜索媒体库</label>
+                        <input 
+                            type="text" 
+                            v-model="dbSearchQuery"
+                            placeholder="输入关键词搜索..."
+                            style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px;"
+                        >
+                    </div>
+                
+                    <div style="max-height: 500px; overflow-y: auto; border: 2px solid #e0e0e0; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="background: #f8f9fa; position: sticky; top: 0;">
+                                <tr>
+                                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">媒体名称</th>
+                                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">类型</th>
+                                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">国家</th>
+                                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">注册日期</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="media in filteredDatabase" :key="media.name" 
+                                    style="border-bottom: 1px solid #e0e0e0; transition: background 0.2s;"
+                                    @mouseover="$event.currentTarget.style.background='#f8f9fa'"
+                                    @mouseout="$event.currentTarget.style.background='white'"
+                                >
+                                    <td style="padding: 12px;">{{ media.name }}</td>
+                                    <td style="padding: 12px;">
+                                        <span :style="getTypeBadgeStyle(media.type)">{{ media.type }}</span>
+                                    </td>
+                                    <td style="padding: 12px;">{{ media.country }}</td>
+                                    <td style="padding: 12px;">{{ media.date }}</td>
+                                </tr>
+                                <tr v-if="filteredDatabase.length === 0">
+                                    <td colspan="4" style="padding: 40px; text-align: center; color: #666;">
+                                        未找到匹配的媒体
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                
+                    <div style="margin-top: 15px; text-align: right; color: #666; font-size: 0.9em;">
+                        显示 {{ filteredDatabase.length }} / {{ mediaDatabase.length }} 条记录
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: center; color: white; margin-top: 30px; opacity: 0.8;">
+                <p>媒体可信度评分系统 v1.0 | STU CSS Lab</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentTab: 'single',
+                    searchQuery: '',
+                    searchResults: [],
+                    showSuggestions: false,
+                    selectedMedia: null,
+                    dbSearchQuery: '',  // 数据库搜索查询
+                    singleForm: {
+                        name: '',
+                        type: '官方媒体',
+                        country: '中国',
+                        date: '2010-01-01'
+                    },
+                    singleResult: null,
+                    batchInput: '',
+                    batchResults: [],
+                    chart: null,
+                    // 内嵌媒体数据库
+                    mediaDatabase: []
+                }
+            },
+            computed: {
+                // 过滤后的数据库
+                filteredDatabase() {
+                    if (!this.dbSearchQuery || this.dbSearchQuery.trim() === '') {
+                        return this.mediaDatabase;
+                    }
+                    const query = this.dbSearchQuery.toLowerCase().trim();
+                    return this.mediaDatabase.filter(media => {
+                        return media.name.toLowerCase().includes(query) ||
+                               media.type.toLowerCase().includes(query) ||
+                               media.country.toLowerCase().includes(query);
+                    });
+                },
+                
+                stats() {
+                    if (this.batchResults.length === 0) {
+                        return { mean: 0, median: 0, max: 0, min: 0, highCount: 0, lowCount: 0 };
+                    }
+
+                    const scores = this.batchResults.map(r => r.total_score);
+                    const sorted = [...scores].sort((a, b) => a - b);
+                    const n = sorted.length;
+                    const median = n % 2 === 0 
+                        ? (sorted[n/2 - 1] + sorted[n/2]) / 2 
+                        : sorted[Math.floor(n/2)];
+
+                    return {
+                        mean: scores.reduce((a, b) => a + b, 0) / n,
+                        median: median,
+                        max: Math.max(...scores),
+                        min: Math.min(...scores),
+                        highCount: scores.filter(s => s >= 80).length,
+                        lowCount: scores.filter(s => s < 60).length
+                    };
+                }
+            },
+            methods: {
+                calculateAgeScore(dateStr) {
+                    if (!dateStr) return 50;
+                    
+                    const created = new Date(dateStr);
+                    const today = new Date();
+                    const ageYears = (today - created) / (1000 * 60 * 60 * 24 * 365.25);
+
+                    if (ageYears < 1) return 50;
+                    if (ageYears < 3) return 60;
+                    if (ageYears < 5) return 75;
+                    if (ageYears < 10) return 85;
+                    return 95;
+                },
+
+                getTypeScore(type) {
+                    const scores = {
+                        '官方媒体': 95,
+                        '主流媒体': 85,
+                        '商业媒体': 70,
+                        '自媒体': 50,
+                        '个人账号': 30
+                    };
+                    return scores[type] || 40;
+                },
+
+                getCountryScore(country) {
+                    const scores = {
+                        '中国': 90,
+                        '香港': 85,
+                        '澳门': 85,
+                        '台湾': 85,
+                        '美国': 80,
+                        '英国': 80,
+                        '日本': 80,
+                        '德国': 80,
+                        '法国': 80,
+                        '加拿大': 80,
+                        '澳大利亚': 80,
+                        '印度': 65,
+                        '巴西': 65,
+                        '俄罗斯': 65,
+                        '其他': 50
+                    };
+                    return scores[country] || 50;
+                },
+
+                calculateScore(type, country, date) {
+                    const typeScore = this.getTypeScore(type);
+                    const countryScore = this.getCountryScore(country);
+                    const ageScore = this.calculateAgeScore(date);
+
+                    const totalScore = typeScore * 0.4 + countryScore * 0.35 + ageScore * 0.25;
+
+                    let rating = '';
+                    if (totalScore >= 90) rating = 'A+ (极高可信度)';
+                    else if (totalScore >= 80) rating = 'A (高可信度)';
+                    else if (totalScore >= 70) rating = 'B (中高可信度)';
+                    else if (totalScore >= 60) rating = 'C (中等可信度)';
+                    else if (totalScore >= 50) rating = 'D (中低可信度)';
+                    else rating = 'F (低可信度)';
+
+                    return {
+                        total_score: Math.round(totalScore * 100) / 100,
+                        rating: rating,
+                        type_score: typeScore,
+                        country_score: countryScore,
+                        age_score: ageScore
+                    };
+                },
+
+                calculateSingleScore() {
+                    this.singleResult = this.calculateScore(
+                        this.singleForm.type,
+                        this.singleForm.country,
+                        this.singleForm.date
+                    );
+                },
+
+                calculateBatchScores() {
+                    try {
+                        const mediaList = JSON.parse(this.batchInput);
+                        this.batchResults = mediaList.map(media => ({
+                            ...media,
+                            ...this.calculateScore(media.type, media.country, media.date)
+                        }));
+
+                        // Update chart after batch calculation
+                        this.$nextTick(() => {
+                            this.updateChart();
+                        });
+                    } catch (e) {
+                        alert('JSON格式错误，请检查输入');
+                    }
+                },
+
+                getRatingClass(rating) {
+                    if (rating.includes('A+')) return 'rating-a-plus';
+                    if (rating.includes('A ')) return 'rating-a';
+                    if (rating.includes('B')) return 'rating-b';
+                    if (rating.includes('C')) return 'rating-c';
+                    if (rating.includes('D')) return 'rating-d';
+                    return 'rating-f';
+                },
+
+                // ========== 数据库和搜索功能 ==========
+                
+                // 初始化媒体数据库
+                initMediaDatabase() {
+                    // 从 LocalStorage 加载或初始化默认数据库
+                    const saved = localStorage.getItem('mediaDatabase');
+                    if (saved) {
+                        this.mediaDatabase = JSON.parse(saved);
+                    } else {
+                        // 预设的媒体知识库
+                        this.mediaDatabase = [
+                            // 官方媒体
+                            { name: '央视新闻', type: '官方媒体', country: '中国', date: '2010-03-15' },
+                            { name: '中央电视台', type: '官方媒体', country: '中国', date: '2010-03-15' },
+                            { name: 'CCTV', type: '官方媒体', country: '中国', date: '2010-03-15' },
+                            { name: '人民日报', type: '官方媒体', country: '中国', date: '2009-08-20' },
+                            { name: '新华社', type: '官方媒体', country: '中国', date: '2009-05-01' },
+                            { name: '新华杜', type: '官方媒体', country: '中国', date: '2009-05-01' },
+                            { name: '光明日报', type: '官方媒体', country: '中国', date: '2010-01-10' },
+                            { name: '经济日报', type: '官方媒体', country: '中国', date: '2010-02-15' },
+                            { name: '解放军报', type: '官方媒体', country: '中国', date: '2010-04-01' },
+                            { name: '求是杂志', type: '官方媒体', country: '中国', date: '2010-06-01' },
+                            
+                            // 主流媒体
+                            { name: '澎湃新闻', type: '主流媒体', country: '中国', date: '2014-05-10' },
+                            { name: '澎湃', type: '主流媒体', country: '中国', date: '2014-05-10' },
+                            { name: '凤凰网', type: '主流媒体', country: '中国', date: '2010-08-15' },
+                            { name: '凤凰卫视', type: '主流媒体', country: '中国', date: '2010-08-15' },
+                            { name: '新浪网', type: '主流媒体', country: '中国', date: '2009-09-01' },
+                            { name: '新浪', type: '主流媒体', country: '中国', date: '2009-09-01' },
+                            { name: '搜狐', type: '主流媒体', country: '中国', date: '2009-10-01' },
+                            { name: '网易', type: '主流媒体', country: '中国', date: '2009-11-01' },
+                            { name: '腾讯新闻', type: '主流媒体', country: '中国', date: '2010-01-15' },
+                            { name: '腾讯', type: '主流媒体', country: '中国', date: '2010-01-15' },
+                            { name: '界面新闻', type: '主流媒体', country: '中国', date: '2014-09-01' },
+                            { name: '财新网', type: '主流媒体', country: '中国', date: '2010-04-01' },
+                            { name: '财新', type: '主流媒体', country: '中国', date: '2010-04-01' },
+                            { name: 'BBC中文网', type: '主流媒体', country: '英国', date: '2011-09-12' },
+                            { name: 'BBC', type: '主流媒体', country: '英国', date: '2011-09-12' },
+                            { name: 'CNN', type: '主流媒体', country: '美国', date: '2010-05-01' },
+                            { name: '纽约时报', type: '主流媒体', country: '美国', date: '2010-06-01' },
+                            { name: '华尔街日报', type: '主流媒体', country: '美国', date: '2010-07-01' },
+                            { name: '路透社', type: '主流媒体', country: '英国', date: '2010-03-01' },
+                            { name: '朝日新闻', type: '主流媒体', country: '日本', date: '2010-08-01' },
+                            
+                            // 商业媒体
+                            { name: '36氪', type: '商业媒体', country: '中国', date: '2011-12-01' },
+                            { name: '虎嗅', type: '商业媒体', country: '中国', date: '2012-05-01' },
+                            { name: '钛媒体', type: '商业媒体', country: '中国', date: '2013-06-01' },
+                            { name: '品玩', type: '商业媒体', country: '中国', date: '2014-09-01' },
+                            { name: '晚点LatePost', type: '商业媒体', country: '中国', date: '2017-04-01' },
+                            
+                            // 自媒体示例
+                            { name: '咪蒙', type: '自媒体', country: '中国', date: '2015-01-01' },
+                            { name: '六神磊磊', type: '自媒体', country: '中国', date: '2014-06-01' },
+                            { name: '半佛仙人', type: '自媒体', country: '中国', date: '2019-01-01' },
+                            
+                            // 地方媒体
+                            { name: '北京日报', type: '官方媒体', country: '中国', date: '2010-05-01' },
+                            { name: '上海观察', type: '主流媒体', country: '中国', date: '2014-01-01' },
+                            { name: '南方都市报', type: '主流媒体', country: '中国', date: '2010-07-01' },
+                            { name: '新京报', type: '主流媒体', country: '中国', date: '2010-09-01' },
+                            { name: '红星新闻', type: '主流媒体', country: '中国', date: '2017-06-01' }
+                        ];
+                        this.saveDatabase();
+                    }
+                },
+                
+                // 保存数据库到 LocalStorage
+                saveDatabase() {
+                    localStorage.setItem('mediaDatabase', JSON.stringify(this.mediaDatabase));
+                },
+                
+                // 模糊搜索
+                handleSearch() {
+                    if (!this.searchQuery || this.searchQuery.trim() === '') {
+                        this.searchResults = [];
+                        this.showSuggestions = false;
+                        return;
+                    }
+                    
+                    const query = this.searchQuery.toLowerCase().trim();
+                    
+                    // 模糊匹配：包含关键词即可
+                    this.searchResults = this.mediaDatabase.filter(media => {
+                        const nameLower = media.name.toLowerCase();
+                        return nameLower.includes(query);
+                    }).slice(0, 10); // 最多显示10条结果
+                    
+                    this.showSuggestions = this.searchResults.length > 0;
+                },
+                
+                // 选择媒体
+                selectMedia(media) {
+                    this.selectedMedia = media;
+                    this.singleForm.name = media.name;
+                    this.singleForm.type = media.type;
+                    this.singleForm.country = media.country;
+                    this.singleForm.date = media.date;
+                    this.searchQuery = media.name;
+                    this.showSuggestions = false;
+                    this.searchResults = [];
+                },
+                
+                // 清除选择
+                clearSelection() {
+                    this.selectedMedia = null;
+                    this.searchQuery = '';
+                    this.singleForm.name = '';
+                    this.singleForm.type = '官方媒体';
+                    this.singleForm.country = '中国';
+                    this.singleForm.date = '2010-01-01';
+                },
+                
+                // 添加新媒体到数据库
+                addMediaToDatabase(name, type, country, date) {
+                    // 检查是否已存在
+                    const exists = this.mediaDatabase.some(m => m.name === name);
+                    if (!exists) {
+                        this.mediaDatabase.push({ name, type, country, date });
+                        this.saveDatabase();
+                    }
+                },
+                
+                // 重置数据库
+                resetDatabase() {
+                    if (confirm('确定要重置为默认数据库吗？这将删除所有自定义添加的媒体。')) {
+                        localStorage.removeItem('mediaDatabase');
+                        this.initMediaDatabase();
+                        alert('✅ 数据库已重置为默认值');
+                    }
+                },
+                
+                // 导出数据库
+                exportDatabase() {
+                    const dataStr = JSON.stringify(this.mediaDatabase, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `media-database-${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                },
+                
+                // 获取类型徽章样式
+                getTypeBadgeStyle(type) {
+                    const styles = {
+                        '官方媒体': 'background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;',
+                        '主流媒体': 'background: #007bff; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;',
+                        '商业媒体': 'background: #ffc107; color: #333; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;',
+                        '自媒体': 'background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;',
+                        '个人账号': 'background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;'
+                    };
+                    return styles[type] || 'background: #6c757d; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em;';
+                },
+
+                updateChart() {
+                    const ctx = document.getElementById('scoreChart');
+                    if (!ctx) return;
+
+                    if (this.chart) {
+                        this.chart.destroy();
+                    }
+
+                    const labels = this.batchResults.map(r => r.name);
+                    const scores = this.batchResults.map(r => r.total_score);
+
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '可信度分数',
+                                data: scores,
+                                backgroundColor: scores.map(score => {
+                                    if (score >= 90) return 'rgba(16, 185, 129, 0.7)';
+                                    if (score >= 80) return 'rgba(52, 211, 153, 0.7)';
+                                    if (score >= 70) return 'rgba(251, 191, 36, 0.7)';
+                                    if (score >= 60) return 'rgba(245, 158, 11, 0.7)';
+                                    if (score >= 50) return 'rgba(239, 68, 68, 0.7)';
+                                    return 'rgba(220, 38, 38, 0.7)';
+                                }),
+                                borderColor: scores.map(score => {
+                                    if (score >= 90) return 'rgb(16, 185, 129)';
+                                    if (score >= 80) return 'rgb(52, 211, 153)';
+                                    if (score >= 70) return 'rgb(251, 191, 36)';
+                                    if (score >= 60) return 'rgb(245, 158, 11)';
+                                    if (score >= 50) return 'rgb(239, 68, 68)';
+                                    return 'rgb(220, 38, 38)';
+                                }),
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: '媒体可信度分数对比',
+                                    font: {
+                                        size: 16
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: {
+                                        display: true,
+                                        text: '分数'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: '媒体名称'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            },
+            mounted() {
+                // Load sample data
+                this.batchInput = JSON.stringify([
+                    {
+                        "name": "央视新闻",
+                        "type": "官方媒体",
+                        "country": "中国",
+                        "date": "2010-03-15"
+                    },
+                    {
+                        "name": "人民日报",
+                        "type": "官方媒体",
+                        "country": "中国",
+                        "date": "2009-08-20"
+                    },
+                    {
+                        "name": "澎湃新闻",
+                        "type": "主流媒体",
+                        "country": "中国",
+                        "date": "2014-05-10"
+                    },
+                    {
+                        "name": "某自媒体大号",
+                        "type": "自媒体",
+                        "country": "中国",
+                        "date": "2018-11-25"
+                    },
+                    {
+                        "name": "BBC中文网",
+                        "type": "主流媒体",
+                        "country": "英国",
+                        "date": "2011-09-12"
+                    }
+                ], null, 2);
+            },
+            mounted() {
+                // 初始化媒体数据库
+                this.initMediaDatabase();
+                
+                // 点击外部关闭搜索建议
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.form-group')) {
+                        this.showSuggestions = false;
+                    }
+                });
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
